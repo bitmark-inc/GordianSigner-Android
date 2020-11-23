@@ -23,13 +23,16 @@ data class KeyInfo(
 
     @Expose
     @SerializedName("is_saved")
-    var isSaved: Boolean
-): Parcelable {
+    var isSaved: Boolean,
+
+    var isSigned: Boolean = false
+) : Parcelable {
 
     companion object {
         fun newEmptyInstance() = KeyInfo("", "", null, false)
         fun newUnknownInstance(fingerprint: String) = KeyInfo(fingerprint, "unknown", null, false)
-        fun newDefaultInstance(fingerprint: String, alias: String, isSaved: Boolean) = KeyInfo(fingerprint, alias, Date(), isSaved)
+        fun newDefaultInstance(fingerprint: String, alias: String, isSaved: Boolean) =
+            KeyInfo(fingerprint, alias, Date(), isSaved)
     }
 
     override fun equals(other: Any?): Boolean {

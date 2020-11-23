@@ -24,11 +24,13 @@ class ShareAccountMapViewModel(
     private val rxLiveDataTransformer: RxLiveDataTransformer
 ) : BaseViewModel(lifecycle) {
 
-    internal val accountMapLiveData = CompositeLiveData<String>()
-    internal val accountMapStatusLiveData = CompositeLiveData<Pair<List<KeyInfo>, Descriptor>>()
+    internal val fillAccountMapLiveData = CompositeLiveData<String>()
+    internal val checkAccountMapStatusLiveData = CompositeLiveData<Pair<List<KeyInfo>, Descriptor>>()
+    internal val getKeyInfoLiveData = CompositeLiveData<List<KeyInfo>>()
+    internal val getSeedLiveData = CompositeLiveData<String>()
 
     fun checkValidAccountMap(string: String) {
-        accountMapStatusLiveData.add(
+        checkAccountMapStatusLiveData.add(
             rxLiveDataTransformer.single(
                 accountMapService.getAccountMapInfo(string).flatMap { (_, descriptor) ->
                     val fingerprints = descriptor.validFingerprints()
@@ -65,7 +67,7 @@ class ShareAccountMapViewModel(
     }
 
     fun updateAccountMap(accountMapString: String, seed: String) {
-        accountMapLiveData.add(rxLiveDataTransformer.single(
+        fillAccountMapLiveData.add(rxLiveDataTransformer.single(
             accountMapService.getAccountMapInfo(accountMapString)
                 .flatMap { (accountMap, descriptor) ->
                     val hdKey = HDKey(Hex.hexToBytes(seed), descriptor.network)
@@ -87,6 +89,21 @@ class ShareAccountMapViewModel(
                         )
                     )
                 }
+        ))
+    }
+
+
+    fun fetchKeysInfo() {
+        getKeyInfoLiveData.add(
+            rxLiveDataTransformer.single(
+                accountService.getKeysInfo()
+            )
+        )
+    }
+
+    fun getSeed(fingerprint: String) {
+        getSeedLiveData.add(rxLiveDataTransformer.single(
+            accountService.getSeed(fingerprint)
         ))
     }
 }

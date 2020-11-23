@@ -16,13 +16,13 @@ class ShareAccountMapModule {
     @Provides
     @ActivityScope
     fun provideVM(
-        activity: ShareAccountMapActivity,
+        fragment: ShareAccountMapFragment,
         accountMapService: AccountMapService,
         contactService: ContactService,
         accountService: AccountService,
         rxLiveDataTransformer: RxLiveDataTransformer
     ) = ShareAccountMapViewModel(
-        activity.lifecycle,
+        fragment.lifecycle,
         accountMapService,
         contactService,
         accountService,
@@ -31,9 +31,9 @@ class ShareAccountMapModule {
 
     @ActivityScope
     @Provides
-    fun provideNavigator(activity: ShareAccountMapActivity) = Navigator(activity)
+    fun provideNavigator(fragment: ShareAccountMapFragment) = Navigator(fragment)
 
     @ActivityScope
     @Provides
-    fun provideDialogController(activity: ShareAccountMapActivity) = DialogController(activity)
+    fun provideDialogController(fragment: ShareAccountMapFragment) = DialogController(fragment.activity!!)
 }

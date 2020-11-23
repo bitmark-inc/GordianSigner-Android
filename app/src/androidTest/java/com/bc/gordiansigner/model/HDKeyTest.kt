@@ -29,7 +29,7 @@ class HDKeyTest {
 
     @Test
     fun hdKeyGeneratedCorrectFromSeed() {
-        val hdKey = HDKey(Bip39Mnemonic(testData["mnemonic"] as String).seed, Network.TEST)
+        val hdKey = HDKey(Bip39Mnemonic(testData["mnemonic"] as String).seed(), Network.TEST)
 
         assertEquals(hdKey.xpub, testData["xpub"])
         assertEquals(hdKey.xprv, testData["xprv"])

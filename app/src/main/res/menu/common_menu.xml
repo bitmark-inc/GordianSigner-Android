@@ -16,12 +16,4 @@
         android:title="@string/paste"
         app:showAsAction="always" />
 
-
-    <item
-        android:id="@+id/action_signer"
-        android:icon="@drawable/ic_signer_24"
-        android:orderInCategory="3"
-        android:title="@string/signers"
-        app:showAsAction="always" />
-
 </menu>

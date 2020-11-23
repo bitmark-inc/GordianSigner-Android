@@ -16,15 +16,20 @@
         android:theme="@style/AppTheme">
         <activity android:name=".ui.account.contact.ContactsActivity" />
         <activity android:name=".ui.account.add_account.AddAccountActivity" />
-        <activity android:name=".ui.share_account.ShareAccountMapActivity" />
-        <activity android:name=".ui.account.AccountsActivity" />
+        <activity android:name=".ui.share_account.ShareAccountMapFragment" />
+        <activity android:name=".ui.account.AccountsFragment" />
         <activity android:name=".ui.scan.QRScannerActivity" />
-        <activity android:name=".ui.sign.PsbtSignActivity">
+        <activity
+            android:name=".ui.sign.verify.VerifyPsbtSignActivity" />
+        <activity android:name=".ui.main.MainActivity" >
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
 
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
+        </activity>
+        <activity android:name=".ui.sign.PsbtSignFragment">
+
         </activity>
 
         <provider

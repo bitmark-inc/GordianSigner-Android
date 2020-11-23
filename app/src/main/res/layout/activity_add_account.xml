@@ -87,7 +87,7 @@
         android:paddingVertical="8dp"
         android:textColor="@color/white"
         android:textColorHint="@color/gray"
-        app:layout_constraintBottom_toTopOf="@id/buttonAddSigner"
+        app:layout_constraintBottom_toTopOf="@id/passphraseEditText"
         app:layout_constraintEnd_toStartOf="@id/layoutSave"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toBottomOf="@id/wordsEditText" />
@@ -97,7 +97,7 @@
         android:layout_width="wrap_content"
         android:layout_height="wrap_content"
         android:layout_marginEnd="16dp"
-        app:layout_constraintBottom_toTopOf="@id/buttonAddSigner"
+        app:layout_constraintBottom_toTopOf="@id/passphraseEditText"
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintTop_toBottomOf="@id/wordsEditText">
 
@@ -120,6 +120,24 @@
             app:layout_constraintStart_toStartOf="parent" />
 
     </androidx.constraintlayout.widget.ConstraintLayout>
+
+    <androidx.appcompat.widget.AppCompatEditText
+        android:id="@+id/passphraseEditText"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:layout_marginHorizontal="16dp"
+        android:layout_marginBottom="16dp"
+        android:background="@drawable/bordered_grey_rounded_background"
+        android:hint="@string/passphrase_optional"
+        android:imeOptions="actionDone"
+        android:inputType="text"
+        android:paddingHorizontal="16dp"
+        android:paddingVertical="8dp"
+        android:textColor="@color/white"
+        android:textColorHint="@color/gray"
+        app:layout_constraintBottom_toTopOf="@id/buttonAddSigner"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent" />
 
     <androidx.appcompat.widget.AppCompatButton
         android:id="@+id/buttonAddSigner"

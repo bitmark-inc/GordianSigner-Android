@@ -91,7 +91,7 @@
     <string name="fingerprint">Fingerprint</string>
     <string name="save">Save</string>
     <string name="fingerprint_is_not_correct">Fingerprint is not correct!</string>
-    <string name="account_map_info">Account Map Info\n- Signers Required: %1$d \n- Total Signers: %2$d \n- Joined Singers: %3$s</string>
+    <string name="account_map_info">Account Map Info\n- Type: %1$s \n- Format: %2$s\n- Joined Singers: %3$s</string>
     <string name="psbt_info">PSBT Info\n- Participants (Signers): %2$s \n- Signature Count: %1$d</string>
     <string name="animate">Animate</string>
     <string name="no_animate">No Animate</string>
@@ -101,11 +101,24 @@
     <string name="incorrect_words">Incorrect words!</string>
 
     <string name="confirm_to_sign_psbt">Confirm to Sign PSBT?</string>
-    <string name="please_review_your_info_before_signing">"Please review your info before signing. You will sign the PSBT with your key:\n\n 🔑 %1$s (%2$s)"</string>
+    <string name="please_review_your_info_before_signing">Please review your PSBT info before signing</string>
+    <string name="you_are_going_to_sign_the_psbt_with_your_key">You are going to sign the PSBT with your key:</string>
     <string name="fps">%1$d fps</string>
     <string name="unnamed">Unnamed</string>
-    <string name="fingerprint_format">📝 Fingerprint: %1$s</string>
-    <string name="last_used_format">⏱️ Last used: %1$s</string>
+    <string name="fingerprint_format">📝 %1$s</string>
+    <string name="last_used_format">⏱️ %1$s</string>
     <string name="please_write_down_and_save_your_12_recovery_words">Please write down and save your 12 recovery words.\n\nOnce you hit the add signer button, these words will be deleted permanently from your device! ⚠️</string>
     <string name="generated_successfully">Generated successfully</string>
+    <string name="key_format">🔑 %1$s (%2$s)</string>
+    <string name="key_signed_format">🔑 %1$s (%2$s) - Signed</string>
+    <string name="type_format">Type: %1$s</string>
+    <string name="participants">Participants:</string>
+    <string name="total_amount_format">Total Amount: %1$s BTC</string>
+    <string name="passphrase_optional">passphrase (optional)</string>
+    <string name="keysets">Keysets</string>
+    <string name="account_maps">Account maps</string>
+    <string name="psbt">PSBT</string>
+    <string name="valid_signers">Valid signers</string>
+    <string name="account_with_key_format">%1$s (%2$s) 🔑</string>
+    <string name="account_without_key_format">%1$s (%2$s)</string>
 </resources>

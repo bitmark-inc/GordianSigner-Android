@@ -30,10 +30,11 @@ class AccountService @Inject constructor(
 
     fun importMnemonic(
         mnemonic: String,
+        passphrase: String? = null,
         network: Network = Network.TEST
     ): Single<Pair<String, HDKey>> {
         return Single.fromCallable {
-            val seed = Bip39Mnemonic(mnemonic).seed
+            val seed = Bip39Mnemonic(mnemonic).seed(passphrase)
             Pair(Hex.hexFromBytes(seed), HDKey(seed, network))
         }.subscribeOn(Schedulers.computation())
     }

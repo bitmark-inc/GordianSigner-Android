@@ -17,7 +17,6 @@ class AccountsViewModel(
     internal val keyInfoLiveData = CompositeLiveData<List<KeyInfo>>()
     internal val deleteKeysLiveData = CompositeLiveData<String>()
     internal val updateKeysLiveData = CompositeLiveData<KeyInfo>()
-    internal val getSeedLiveData = CompositeLiveData<String>()
 
     fun fetchKeysInfo() {
         keyInfoLiveData.add(
@@ -41,12 +40,6 @@ class AccountsViewModel(
                 accountService.deleteSeed(fingerprintHex).andThen(Single.just(fingerprintHex))
             )
         )
-    }
-
-    fun getSeed(fingerprint: String) {
-        getSeedLiveData.add(rxLiveDataTransformer.single(
-            accountService.getSeed(fingerprint)
-        ))
     }
 
     fun updateKeyInfo(keyInfo: KeyInfo) {

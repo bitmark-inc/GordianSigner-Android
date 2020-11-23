@@ -15,10 +15,9 @@ class Bip39Mnemonic {
         mnemonic = bip39_mnemonic_from_bytes(bip39_get_wordlist(null), entropy)
     }
 
-    val seed
-        get() = ByteArray(BIP39_SEED_LEN_512).apply {
-            bip39_mnemonic_to_seed(mnemonic, null, this)
-        }
+    fun seed(passphrase: String? = null) = ByteArray(BIP39_SEED_LEN_512).apply {
+        bip39_mnemonic_to_seed(mnemonic, passphrase, this)
+    }
 
-    val seedHex: String get() = hex_from_bytes(seed)
+    fun seedHex(passphrase: String? = null): String = hex_from_bytes(seed(passphrase))
 }

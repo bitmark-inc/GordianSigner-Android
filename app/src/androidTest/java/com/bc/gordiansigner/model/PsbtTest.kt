@@ -59,7 +59,7 @@ class PsbtTest {
         val psbt = Psbt(validPsbtData["base64_psbt"] as String)
         val hdKey =
             HDKey(
-                Bip39Mnemonic(validPsbtData["recovery_phrase"] as String).seed,
+                Bip39Mnemonic(validPsbtData["recovery_phrase"] as String).seed(),
                 Network.TEST
             )
         psbt.sign(hdKey)
@@ -70,7 +70,7 @@ class PsbtTest {
     fun testSignPsbtInvalidKey() {
         val psbt = Psbt(validPsbtData["base64_psbt"] as String)
         invalidRecoveryPhrase.forEach {
-            val hdKey = HDKey(Bip39Mnemonic(it).seed, Network.TEST)
+            val hdKey = HDKey(Bip39Mnemonic(it).seed(), Network.TEST)
             psbt.sign(hdKey)
         }
     }

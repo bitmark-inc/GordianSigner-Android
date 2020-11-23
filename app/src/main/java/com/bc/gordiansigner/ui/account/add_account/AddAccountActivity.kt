@@ -271,10 +271,11 @@ class AddAccountActivity : BaseAppCompatActivity() {
     }
 
     private fun importWallet() {
-        val phrase = addedWords.joinToString(separator = " ")
+        val words = addedWords.joinToString(separator = " ")
+        val passphrase = passphraseEditText.text?.toString()
         val alias = aliasEditText.text.toString()
         val isSavePrivateKey = scSavePrivate.isChecked
-        viewModel.importWallet(phrase, alias, isSavePrivateKey, keyInfo)
+        viewModel.importWallet(words, passphrase, alias, isSavePrivateKey, keyInfo)
     }
 
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {

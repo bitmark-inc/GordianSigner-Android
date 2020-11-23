@@ -18,10 +18,10 @@ class AddAccountViewModel(
     internal val importAccountLiveData = CompositeLiveData<Pair<KeyInfo, String>>()
     internal val generateSignerLiveData = CompositeLiveData<String>()
 
-    fun importWallet(phrase: String, alias: String, saveXpriv: Boolean, keyInfo: KeyInfo?) {
+    fun importWallet(words: String, passphrase: String?, alias: String, saveXpriv: Boolean, keyInfo: KeyInfo?) {
         importAccountLiveData.add(
             rxLiveDataTransformer.single(
-                accountService.importMnemonic(phrase).flatMap { (seed, key) ->
+                accountService.importMnemonic(words, passphrase).flatMap { (seed, key) ->
                     val importedKeyInfo =
                         KeyInfo.newDefaultInstance(key.fingerprintHex, alias, saveXpriv)
 

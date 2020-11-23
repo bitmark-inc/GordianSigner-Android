@@ -16,7 +16,7 @@ class Bip39MnemonicTest {
         )
 
         val mnemonic = Bip39Mnemonic(testData["mnemonic"] as String)
-        assertEquals(mnemonic.seedHex, testData["seedHex"])
+        assertEquals(mnemonic.seedHex(), testData["seedHex"])
     }
 
     @Test(expected = IllegalArgumentException::class)

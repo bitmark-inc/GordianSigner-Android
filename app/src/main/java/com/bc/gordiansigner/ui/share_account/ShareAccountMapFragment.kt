@@ -4,37 +4,41 @@ import android.app.Activity
 import android.content.Intent
 import android.util.Log
 import android.view.Menu
+import android.view.MenuInflater
 import android.view.MenuItem
 import android.widget.Toast
+import androidx.appcompat.app.AppCompatActivity
 import androidx.biometric.BiometricManager
 import androidx.lifecycle.Observer
 import com.bc.gordiansigner.R
 import com.bc.gordiansigner.helper.Error.ACCOUNT_MAP_ALREADY_FILLED_ERROR
 import com.bc.gordiansigner.helper.Error.ACCOUNT_MAP_COMPLETED_ERROR
 import com.bc.gordiansigner.helper.Error.BAD_DESCRIPTOR_ERROR
-import com.bc.gordiansigner.helper.Error.NO_HD_KEY_FOUND_ERROR
 import com.bc.gordiansigner.helper.KeyStoreHelper
 import com.bc.gordiansigner.helper.ext.copyToClipboard
 import com.bc.gordiansigner.helper.ext.enrollDeviceSecurity
 import com.bc.gordiansigner.helper.ext.pasteFromClipBoard
 import com.bc.gordiansigner.helper.ext.setSafetyOnclickListener
+import com.bc.gordiansigner.helper.view.ChooseAccountDialog
 import com.bc.gordiansigner.helper.view.ExportBottomSheetDialog
 import com.bc.gordiansigner.helper.view.QRCodeBottomSheetDialog
-import com.bc.gordiansigner.ui.BaseAppCompatActivity
+import com.bc.gordiansigner.model.KeyInfo
+import com.bc.gordiansigner.ui.BaseSupportFragment
 import com.bc.gordiansigner.ui.DialogController
 import com.bc.gordiansigner.ui.Navigator
 import com.bc.gordiansigner.ui.Navigator.Companion.RIGHT_LEFT
-import com.bc.gordiansigner.ui.account.AccountsActivity
+import com.bc.gordiansigner.ui.account.AccountsFragment
+import com.bc.gordiansigner.ui.account.add_account.AddAccountActivity
 import com.bc.gordiansigner.ui.scan.QRScannerActivity
 import kotlinx.android.synthetic.main.activity_share_account_map.*
 import javax.inject.Inject
 
-class ShareAccountMapActivity : BaseAppCompatActivity() {
+class ShareAccountMapFragment : BaseSupportFragment() {
 
     companion object {
         private const val TAG = "ShareAccountMapActivity"
         private const val REQUEST_CODE_QR_ACCOUNT_MAP = 0x01
-        private const val REQUEST_CODE_SELECT_KEY = 0x02
+        private const val REQUEST_CODE_INPUT_KEY = 0x02
     }
 
     @Inject
@@ -46,8 +50,9 @@ class ShareAccountMapActivity : BaseAppCompatActivity() {
     @Inject
     internal lateinit var dialogController: DialogController
 
+    private lateinit var keysInfo: List<KeyInfo>
     private var export = false
-    private var selectedSeed = ""
+    private var selectedFingerprint = ""
 
     override fun layoutRes() = R.layout.activity_share_account_map
 
@@ -56,20 +61,32 @@ class ShareAccountMapActivity : BaseAppCompatActivity() {
     override fun initComponents() {
         super.initComponents()
 
-        supportActionBar?.title = ""
-        supportActionBar?.setDisplayHomeAsUpEnabled(true)
+        (activity as? AppCompatActivity)?.supportActionBar?.let { supportActionBar ->
+            supportActionBar.title = ""
+            supportActionBar.setDisplayHomeAsUpEnabled(false)
+        }
+
+        setHasOptionsMenu(true)
 
         buttonFill.setSafetyOnclickListener {
             val accountMapJson = editText.text.toString()
 
             if (!export) {
                 if (accountMapJson.isNotEmpty()) {
-                    val bundle = AccountsActivity.getBundle(true)
-                    navigator.anim(RIGHT_LEFT).startActivityForResult(
-                        AccountsActivity::class.java,
-                        REQUEST_CODE_SELECT_KEY,
-                        bundle
-                    )
+                    val dialog = ChooseAccountDialog(keysInfo) {
+                        if (it.isSaved) {
+                            selectedFingerprint = it.fingerprint
+                            viewModel.getSeed(it.fingerprint)
+                        } else {
+                            val bundle = AddAccountActivity.getBundle(it)
+                            navigator.anim(RIGHT_LEFT).startActivityForResult(
+                                AddAccountActivity::class.java,
+                                REQUEST_CODE_INPUT_KEY,
+                                bundle
+                            )
+                        }
+                    }
+                    dialog.show(fragmentManager!!, ChooseAccountDialog.TAG)
                 } else {
                     dialogController.alert(R.string.error, R.string.invalid_account_map)
                 }
@@ -78,9 +95,9 @@ class ShareAccountMapActivity : BaseAppCompatActivity() {
                     isFileVisible = false,
                     listener = object : ExportBottomSheetDialog.OnItemSelectedListener {
                         override fun onCopy() {
-                            this@ShareAccountMapActivity.copyToClipboard(accountMapJson)
+                            context!!.copyToClipboard(accountMapJson)
                             Toast.makeText(
-                                this@ShareAccountMapActivity,
+                                context!!,
                                 R.string.copied,
                                 Toast.LENGTH_LONG
                             ).show()
@@ -88,22 +105,24 @@ class ShareAccountMapActivity : BaseAppCompatActivity() {
 
                         override fun onShowQR() {
                             val qrDialog = QRCodeBottomSheetDialog(editText.text.toString())
-                            qrDialog.show(supportFragmentManager, QRCodeBottomSheetDialog.TAG)
+                            qrDialog.show(fragmentManager!!, QRCodeBottomSheetDialog.TAG)
                         }
 
                         override fun onSaveFile() {
                             //Not supported
                         }
                     })
-                dialog.show(supportFragmentManager, ExportBottomSheetDialog.TAG)
+                dialog.show(fragmentManager!!, ExportBottomSheetDialog.TAG)
             }
         }
+
+        viewModel.fetchKeysInfo()
     }
 
     override fun observe() {
         super.observe()
 
-        viewModel.accountMapLiveData.asLiveData().observe(this, Observer { res ->
+        viewModel.fillAccountMapLiveData.asLiveData().observe(this, Observer { res ->
             when {
                 res.isSuccess() -> {
                     editText.setText(res.data())
@@ -116,42 +135,18 @@ class ShareAccountMapActivity : BaseAppCompatActivity() {
                 }
 
                 res.isError() -> {
-                    if (!KeyStoreHelper.handleKeyStoreError(
-                            applicationContext,
-                            res.throwable()!!,
-                            dialogController,
-                            navigator,
-                            authRequiredCallback = {
-                                KeyStoreHelper.biometricAuth(
-                                    this,
-                                    R.string.auth_required,
-                                    R.string.auth_for_updating_account_map,
-                                    successCallback = {
-                                        updateAccountMap()
-                                    },
-                                    failedCallback = { code ->
-                                        if (code == BiometricManager.BIOMETRIC_ERROR_NONE_ENROLLED) {
-                                            navigator.anim(RIGHT_LEFT).enrollDeviceSecurity()
-                                        } else {
-                                            Log.e(TAG, "Biometric auth failed with code: $code")
-                                        }
-                                    })
-                            })
-                    ) {
-                        val msg = when (res.throwable()) {
-                            NO_HD_KEY_FOUND_ERROR -> R.string.no_account_found
-                            ACCOUNT_MAP_COMPLETED_ERROR -> R.string.account_map_completed
-                            ACCOUNT_MAP_ALREADY_FILLED_ERROR -> R.string.account_map_filled
-                            BAD_DESCRIPTOR_ERROR -> R.string.bad_descriptor
-                            else -> R.string.unsupported_format
-                        }
-                        dialogController.alert(R.string.error, msg)
+                    val msg = when (res.throwable()) {
+                        ACCOUNT_MAP_COMPLETED_ERROR -> R.string.account_map_completed
+                        ACCOUNT_MAP_ALREADY_FILLED_ERROR -> R.string.account_map_filled
+                        BAD_DESCRIPTOR_ERROR -> R.string.bad_descriptor
+                        else -> R.string.unsupported_format
                     }
+                    dialogController.alert(R.string.error, msg)
                 }
             }
         })
 
-        viewModel.accountMapStatusLiveData.asLiveData().observe(this, Observer { res ->
+        viewModel.checkAccountMapStatusLiveData.asLiveData().observe(this, Observer { res ->
             when {
                 res.isSuccess() -> {
                     res.data()?.let { (joinedSigners, descriptor) ->
@@ -159,8 +154,8 @@ class ShareAccountMapActivity : BaseAppCompatActivity() {
                             getString(R.string.valid_account_map),
                             getString(
                                 R.string.account_map_info,
-                                descriptor.sigsRequired,
-                                descriptor.keysWithPath.size,
+                                descriptor.mOfNType,
+                                descriptor.format,
                                 if (joinedSigners.isNotEmpty()) joinedSigners.joinToString {
                                     "\n\t\uD83D\uDD11 ${if (it.alias.isNotEmpty()) {
                                         getString(
@@ -184,16 +179,67 @@ class ShareAccountMapActivity : BaseAppCompatActivity() {
                 }
             }
         })
+
+        viewModel.getKeyInfoLiveData.asLiveData().observe(this, Observer { res ->
+            when {
+                res.isSuccess() -> {
+                    res.data()?.let {
+                        keysInfo = it
+                    }
+                }
+
+                res.isError() -> {
+                    dialogController.alert(res.throwable())
+                }
+            }
+        })
+
+        viewModel.getSeedLiveData.asLiveData().observe(this, Observer { res ->
+            when {
+                res.isSuccess() -> {
+                    res.data()?.let {
+                        updateAccountMap(it)
+                    }
+                }
+
+                res.isError() -> {
+                    if (!KeyStoreHelper.handleKeyStoreError(
+                            context!!,
+                            res.throwable()!!,
+                            dialogController,
+                            navigator,
+                            authRequiredCallback = {
+                                KeyStoreHelper.biometricAuth(
+                                    activity!!,
+                                    R.string.auth_required,
+                                    R.string.auth_for_updating_account_map,
+                                    successCallback = {
+                                        viewModel.getSeed(selectedFingerprint)
+                                    },
+                                    failedCallback = { code ->
+                                        if (code == BiometricManager.BIOMETRIC_ERROR_NONE_ENROLLED) {
+                                            navigator.anim(RIGHT_LEFT).enrollDeviceSecurity()
+                                        } else {
+                                            Log.e(TAG, "Biometric auth failed with code: $code")
+                                        }
+                                    })
+                            })
+                    ) {
+                        dialogController.alert(res.throwable())
+                    }
+                }
+            }
+        })
     }
 
-    private fun updateAccountMap() {
+    private fun updateAccountMap(seed: String) {
         val accountMapJson = editText.text.toString()
-        viewModel.updateAccountMap(accountMapJson, selectedSeed)
+        viewModel.updateAccountMap(accountMapJson, seed)
     }
 
-    override fun onCreateOptionsMenu(menu: Menu?): Boolean {
-        menuInflater.inflate(R.menu.account_map_menu, menu)
-        return super.onCreateOptionsMenu(menu)
+    override fun onCreateOptionsMenu(menu: Menu, inflater: MenuInflater) {
+        inflater.inflate(R.menu.account_map_menu, menu)
+        super.onCreateOptionsMenu(menu, inflater)
     }
 
     override fun onOptionsItemSelected(item: MenuItem): Boolean {
@@ -202,7 +248,7 @@ class ShareAccountMapActivity : BaseAppCompatActivity() {
                 navigator.anim(RIGHT_LEFT).finishActivity()
             }
             R.id.action_paste -> {
-                this.pasteFromClipBoard()?.let {
+                context!!.pasteFromClipBoard()?.let {
                     checkAccountMap(it)
                 } ?: dialogController.alert(R.string.error, R.string.clipboard_is_empty)
             }
@@ -229,11 +275,11 @@ class ShareAccountMapActivity : BaseAppCompatActivity() {
                     }
                 }
 
-                REQUEST_CODE_SELECT_KEY -> {
+                REQUEST_CODE_INPUT_KEY -> {
                     data?.let {
-                        selectedSeed = AccountsActivity.extractResultData(it) ?: return
-
-                        updateAccountMap()
+                        val (keyInfo, seed) = AddAccountActivity.extractResultData(it)
+                        selectedFingerprint = keyInfo?.fingerprint ?: return
+                        updateAccountMap(seed!!)
                     }
                 }
 
@@ -243,7 +289,7 @@ class ShareAccountMapActivity : BaseAppCompatActivity() {
             }
         } else if (resultCode != Activity.RESULT_CANCELED && requestCode == KeyStoreHelper.ENROLLMENT_REQUEST_CODE) {
             // resultCode is 3 after biometric is enrolled
-            updateAccountMap()
+            viewModel.getSeed(selectedFingerprint)
         }
     }
 
@@ -252,10 +298,5 @@ class ShareAccountMapActivity : BaseAppCompatActivity() {
         export = false
         buttonFill.setText(R.string.fill)
         viewModel.checkValidAccountMap(string)
-    }
-
-    override fun onBackPressed() {
-        navigator.anim(RIGHT_LEFT).finishActivity()
-        super.onBackPressed()
     }
 }

@@ -7,6 +7,7 @@ import android.util.Base64
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.widget.SeekBar
 import com.bc.gordiansigner.R
 import com.bc.gordiansigner.helper.ext.*
 import com.bc.ur.UR
@@ -24,8 +25,6 @@ class QRCodeBottomSheetDialog(
     companion object {
         const val TAG = "QrCodeBottomSheetDialog"
         private const val QR_CODE_SIZE = 500
-        private const val MAX_FPS = 20
-        private const val MIN_FPS = 1
     }
 
     private val handler = Handler(Looper.getMainLooper())
@@ -48,7 +47,7 @@ class QRCodeBottomSheetDialog(
 
         if (animateEnabled) {
             val data = Base64.decode(base64, Base64.NO_WRAP)
-            val ur = UR.create("psbt", data)
+            val ur = UR.create("crypto-psbt", data)
 
             val qrBitmap = UREncoder.encode(ur).toQrCode(QR_CODE_SIZE)
             ivQRCode.setImageBitmap(qrBitmap)
@@ -75,17 +74,22 @@ class QRCodeBottomSheetDialog(
                 }
             }
 
-            btnFast.setOnClickListener {
-                if (fps < MAX_FPS) {
-                    tvFps.text = getString(R.string.fps, ++fps)
+            seekBar.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+                override fun onProgressChanged(
+                    seekBar: SeekBar?,
+                    progress: Int,
+                    fromUser: Boolean
+                ) {
+                    fps = (progress / 5).coerceAtLeast(1)
+                    tvFps.text = getString(R.string.fps, fps)
                 }
-            }
 
-            btnSlow.setOnClickListener {
-                if (fps > MIN_FPS) {
-                    tvFps.text = getString(R.string.fps, --fps)
+                override fun onStartTrackingTouch(p0: SeekBar?) {
                 }
-            }
+
+                override fun onStopTrackingTouch(p0: SeekBar?) {
+                }
+            })
         } else {
             btnAnimate.gone()
             ivQRCode.setImageBitmap(base64.toQrCode(QR_CODE_SIZE))

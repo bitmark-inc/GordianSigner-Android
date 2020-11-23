@@ -14,16 +14,16 @@ class AccountsModule {
     @ActivityScope
     @Provides
     fun provideVM(
-        activity: AccountsActivity,
+        fragment: AccountsFragment,
         accountService: AccountService,
         rxLiveDataTransformer: RxLiveDataTransformer
-    ) = AccountsViewModel(activity.lifecycle, accountService, rxLiveDataTransformer)
+    ) = AccountsViewModel(fragment.lifecycle, accountService, rxLiveDataTransformer)
 
     @ActivityScope
     @Provides
-    fun provideNavigator(activity: AccountsActivity) = Navigator(activity)
+    fun provideNavigator(fragment: AccountsFragment) = Navigator(fragment)
 
     @ActivityScope
     @Provides
-    fun provideDialogController(activity: AccountsActivity) = DialogController(activity)
+    fun provideDialogController(fragment: AccountsFragment) = DialogController(fragment.activity!!)
 }

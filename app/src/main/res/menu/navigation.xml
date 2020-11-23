@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android">
+    <item
+        android:id="@+id/navigation_psbt"
+        android:icon="@drawable/ic_bitcoin_24"
+        android:title="@string/psbt" />
+
+    <item
+        android:id="@+id/navigation_signers"
+        android:icon="@drawable/ic_signer_24"
+        android:title="@string/signers" />
+
+<!--    <item-->
+<!--        android:id="@+id/navigation_keyset"-->
+<!--        android:icon="@drawable/ic_key_set_24"-->
+<!--        android:title="@string/keysets" />-->
+
+    <item
+        android:id="@+id/navigation_account_map"
+        android:icon="@drawable/ic_map_24"
+        android:title="@string/account_maps" />
+
+</menu>

@@ -2,10 +2,11 @@ package com.bc.gordiansigner.ui.account
 
 import android.app.Activity
 import android.content.Intent
-import android.os.Bundle
 import android.util.Log
 import android.view.Menu
+import android.view.MenuInflater
 import android.view.MenuItem
+import androidx.appcompat.app.AppCompatActivity
 import androidx.biometric.BiometricManager
 import androidx.lifecycle.Observer
 import androidx.recyclerview.widget.LinearLayoutManager
@@ -14,31 +15,19 @@ import com.bc.gordiansigner.R
 import com.bc.gordiansigner.helper.KeyStoreHelper
 import com.bc.gordiansigner.helper.ext.enrollDeviceSecurity
 import com.bc.gordiansigner.helper.view.ContactDialog
-import com.bc.gordiansigner.ui.BaseAppCompatActivity
+import com.bc.gordiansigner.ui.BaseSupportFragment
 import com.bc.gordiansigner.ui.DialogController
 import com.bc.gordiansigner.ui.Navigator
 import com.bc.gordiansigner.ui.Navigator.Companion.RIGHT_LEFT
 import com.bc.gordiansigner.ui.account.add_account.AddAccountActivity
 import com.bc.gordiansigner.ui.account.contact.ContactsActivity
-import com.bc.gordiansigner.ui.share_account.ShareAccountMapActivity
 import kotlinx.android.synthetic.main.activity_accounts.*
 import javax.inject.Inject
 
-class AccountsActivity : BaseAppCompatActivity() {
+class AccountsFragment : BaseSupportFragment() {
 
     companion object {
         private const val TAG = "AccountsActivity"
-
-        private const val REQUEST_CODE_INPUT_KEY = 0x10
-
-        private const val IS_SELECTING_KEY = "is_selecting_key"
-        private const val SELECTED_KEY = "selected_key"
-
-        fun getBundle(isSelecting: Boolean) = Bundle().apply {
-            putBoolean(IS_SELECTING_KEY, isSelecting)
-        }
-
-        fun extractResultData(intent: Intent) = intent.getStringExtra(SELECTED_KEY)
     }
 
     @Inject
@@ -52,11 +41,8 @@ class AccountsActivity : BaseAppCompatActivity() {
 
     private lateinit var adapter: AccountRecyclerViewAdapter
 
-    private var isSelecting: Boolean = false
-
     private var deletePrivateKeyOnly = false
     private lateinit var deletedAccountFingerprint: String
-    private lateinit var selectedAccountFingerprint: String
 
     override fun layoutRes() = R.layout.activity_accounts
 
@@ -65,11 +51,12 @@ class AccountsActivity : BaseAppCompatActivity() {
     override fun initComponents() {
         super.initComponents()
 
-        isSelecting = intent.getBooleanExtra(IS_SELECTING_KEY, false)
+        (activity as? AppCompatActivity)?.supportActionBar?.let { supportActionBar ->
+            supportActionBar.title = ""
+            supportActionBar.setDisplayHomeAsUpEnabled(false)
+        }
 
-        title = ""
-
-        supportActionBar?.setDisplayHomeAsUpEnabled(true)
+        setHasOptionsMenu(true)
 
         adapter = AccountRecyclerViewAdapter { keyInfo ->
             deletedAccountFingerprint = keyInfo.fingerprint
@@ -104,32 +91,15 @@ class AccountsActivity : BaseAppCompatActivity() {
             }
         }
 
-        if (isSelecting) {
-            tvHeader.setText(R.string.select_a_key)
-            adapter.setItemSelectedListener { keyInfo ->
-                if (keyInfo.isSaved) {
-                    selectedAccountFingerprint = keyInfo.fingerprint
-                    viewModel.getSeed(selectedAccountFingerprint)
-                } else {
-                    val bundle = AddAccountActivity.getBundle(keyInfo)
-                    navigator.anim(RIGHT_LEFT).startActivityForResult(
-                        AddAccountActivity::class.java,
-                        REQUEST_CODE_INPUT_KEY,
-                        bundle
-                    )
-                }
+        adapter.setItemSelectedListener { keyInfo ->
+            val dialog = ContactDialog(keyInfo) { newKeyInfo ->
+                viewModel.updateKeyInfo(newKeyInfo)
             }
-        } else {
-            adapter.setItemSelectedListener { keyInfo ->
-                val dialog = ContactDialog(keyInfo) { newKeyInfo ->
-                    viewModel.updateKeyInfo(newKeyInfo)
-                }
-                dialog.show(supportFragmentManager, ContactDialog.TAG)
-            }
+            dialog.show(fragmentManager!!, ContactDialog.TAG)
         }
 
         with(recyclerView) {
-            this.adapter = this@AccountsActivity.adapter
+            this.adapter = this@AccountsFragment.adapter
             this.layoutManager = LinearLayoutManager(context, RecyclerView.VERTICAL, false)
         }
     }
@@ -142,7 +112,7 @@ class AccountsActivity : BaseAppCompatActivity() {
     override fun onPause() {
         if (adapter.isEditing) {
             adapter.isEditing = false
-            invalidateOptionsMenu()
+            activity?.invalidateOptionsMenu()
         }
         super.onPause()
     }
@@ -177,13 +147,13 @@ class AccountsActivity : BaseAppCompatActivity() {
 
                 res.isError() -> {
                     if (!KeyStoreHelper.handleKeyStoreError(
-                            applicationContext,
+                            context!!,
                             res.throwable()!!,
                             dialogController,
                             navigator,
                             authRequiredCallback = {
                                 KeyStoreHelper.biometricAuth(
-                                    this,
+                                    activity!!,
                                     R.string.auth_required,
                                     R.string.auth_for_deleting_account,
                                     successCallback = {
@@ -214,50 +184,6 @@ class AccountsActivity : BaseAppCompatActivity() {
             }
         })
 
-        viewModel.getSeedLiveData.asLiveData().observe(this, Observer { res ->
-            when {
-                res.isSuccess() -> {
-                    res.data()?.let { seed ->
-                        val intent = Intent().apply { putExtra(SELECTED_KEY, seed) }
-                        navigator.anim(RIGHT_LEFT).finishActivityForResult(intent)
-                    }
-                }
-
-                res.isError() -> {
-                    if (!KeyStoreHelper.handleKeyStoreError(
-                            applicationContext,
-                            res.throwable()!!,
-                            dialogController,
-                            navigator,
-                            authRequiredCallback = {
-                                KeyStoreHelper.biometricAuth(
-                                    this,
-                                    R.string.auth_required,
-                                    R.string.auth_for_getting_your_account_key,
-                                    successCallback = {
-                                        viewModel.getSeed(selectedAccountFingerprint)
-                                    },
-                                    failedCallback = { code ->
-                                        if (code == BiometricManager.BIOMETRIC_ERROR_NONE_ENROLLED) {
-                                            navigator.anim(RIGHT_LEFT).enrollDeviceSecurity()
-                                        } else {
-                                            Log.e(
-                                                TAG,
-                                                "Biometric auth failed with code: $code"
-                                            )
-                                        }
-                                    })
-                            })
-                    ) {
-                        dialogController.alert(
-                            R.string.error,
-                            R.string.could_not_get_your_account
-                        )
-                    }
-                }
-            }
-        })
-
         viewModel.updateKeysLiveData.asLiveData().observe(this, Observer { res ->
             when {
                 res.isSuccess() -> {
@@ -273,15 +199,15 @@ class AccountsActivity : BaseAppCompatActivity() {
         })
     }
 
-    override fun onCreateOptionsMenu(menu: Menu?): Boolean {
-        if (!isSelecting) menuInflater.inflate(R.menu.accounts_menu, menu)
-        return !isSelecting
+    override fun onCreateOptionsMenu(menu: Menu, inflater: MenuInflater) {
+        inflater.inflate(R.menu.accounts_menu, menu)
+        super.onCreateOptionsMenu(menu, inflater)
     }
 
-    override fun onPrepareOptionsMenu(menu: Menu?): Boolean {
-        menu?.findItem(R.id.action_edit)
+    override fun onPrepareOptionsMenu(menu: Menu) {
+        menu.findItem(R.id.action_edit)
             ?.setTitle(if (adapter.isEditing) R.string.done else R.string.edit)
-        return super.onPrepareOptionsMenu(menu)
+        super.onPrepareOptionsMenu(menu)
     }
 
     override fun onOptionsItemSelected(item: MenuItem): Boolean {
@@ -292,15 +218,12 @@ class AccountsActivity : BaseAppCompatActivity() {
             R.id.action_contact -> {
                 navigator.anim(RIGHT_LEFT).startActivity(ContactsActivity::class.java)
             }
-            R.id.action_fill_account_map -> {
-                navigator.anim(RIGHT_LEFT).startActivity(ShareAccountMapActivity::class.java)
-            }
             R.id.action_add -> {
                 navigator.anim(RIGHT_LEFT).startActivity(AddAccountActivity::class.java)
             }
             R.id.action_edit -> {
                 adapter.isEditing = !adapter.isEditing
-                invalidateOptionsMenu()
+                activity?.invalidateOptionsMenu()
             }
         }
 
@@ -310,27 +233,13 @@ class AccountsActivity : BaseAppCompatActivity() {
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
 
-        if (resultCode == Activity.RESULT_OK) {
-            when (requestCode) {
-                REQUEST_CODE_INPUT_KEY -> {
-                    data?.let {
-                        val (_, xprv) = AddAccountActivity.extractResultData(it)
-                        val intent = Intent().apply { putExtra(SELECTED_KEY, xprv) }
-                        navigator.anim(RIGHT_LEFT).finishActivityForResult(intent)
-                    }
-                }
-                else -> {
-                    error("unknown request code")
-                }
-            }
-        } else if (resultCode != Activity.RESULT_CANCELED && requestCode == KeyStoreHelper.ENROLLMENT_REQUEST_CODE) {
+        if (resultCode != Activity.RESULT_CANCELED && requestCode == KeyStoreHelper.ENROLLMENT_REQUEST_CODE) {
             // resultCode is 3 after biometric is enrolled
-            viewModel.getSeed(selectedAccountFingerprint)
+            if (deletePrivateKeyOnly) {
+                viewModel.deleteHDKey(deletedAccountFingerprint)
+            } else {
+                viewModel.deleteKeyInfo(deletedAccountFingerprint)
+            }
         }
-    }
-
-    override fun onBackPressed() {
-        navigator.anim(RIGHT_LEFT).finishActivity()
-        super.onBackPressed()
     }
 }

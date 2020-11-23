@@ -6,8 +6,10 @@ import android.content.Intent
 import android.util.Base64
 import android.util.Log
 import android.view.Menu
+import android.view.MenuInflater
 import android.view.MenuItem
 import android.widget.Toast
+import androidx.appcompat.app.AppCompatActivity
 import androidx.biometric.BiometricManager
 import androidx.core.content.FileProvider
 import androidx.lifecycle.Observer
@@ -19,13 +21,13 @@ import com.bc.gordiansigner.helper.ext.*
 import com.bc.gordiansigner.helper.view.ExportBottomSheetDialog
 import com.bc.gordiansigner.helper.view.QRCodeBottomSheetDialog
 import com.bc.gordiansigner.model.KeyInfo
-import com.bc.gordiansigner.ui.BaseAppCompatActivity
+import com.bc.gordiansigner.ui.BaseSupportFragment
 import com.bc.gordiansigner.ui.DialogController
 import com.bc.gordiansigner.ui.Navigator
 import com.bc.gordiansigner.ui.Navigator.Companion.RIGHT_LEFT
-import com.bc.gordiansigner.ui.account.AccountsActivity
 import com.bc.gordiansigner.ui.account.add_account.AddAccountActivity
 import com.bc.gordiansigner.ui.scan.QRScannerActivity
+import com.bc.gordiansigner.ui.sign.verify.VerifyPsbtSignActivity
 import com.tbruyelle.rxpermissions2.RxPermissions
 import io.reactivex.Single
 import io.reactivex.android.schedulers.AndroidSchedulers
@@ -35,13 +37,14 @@ import kotlinx.android.synthetic.main.activity_psbt_sign.*
 import java.io.File
 import javax.inject.Inject
 
-class PsbtSignActivity : BaseAppCompatActivity() {
+class PsbtSignFragment : BaseSupportFragment() {
 
     companion object {
         private const val TAG = "PsbtSignActivity"
         private const val REQUEST_CODE_QR_PSBT = 0x02
         private const val REQUEST_CODE_BROWSE = 0x03
         private const val REQUEST_CODE_INPUT_KEY = 0x04
+        private const val REQUEST_CODE_SIGN_VERIFY = 0x05
     }
 
     @Inject
@@ -54,6 +57,10 @@ class PsbtSignActivity : BaseAppCompatActivity() {
     internal lateinit var dialogController: DialogController
 
     private lateinit var currentKeyInfo: KeyInfo
+    private lateinit var currentPsbt: String
+    private lateinit var participants: List<KeyInfo>
+    private var currentSeed: String? = null
+
     private var export = false
     private val compositeDisposable = CompositeDisposable()
 
@@ -64,18 +71,22 @@ class PsbtSignActivity : BaseAppCompatActivity() {
     override fun initComponents() {
         super.initComponents()
 
-        supportActionBar?.title = ""
-        supportActionBar?.setDisplayHomeAsUpEnabled(true)
-        supportActionBar?.setHomeAsUpIndicator(R.drawable.ic_qr_code_24)
+        (activity as? AppCompatActivity)?.supportActionBar?.let { supportActionBar ->
+            supportActionBar.title = ""
+            supportActionBar.setDisplayHomeAsUpEnabled(true)
+            supportActionBar.setHomeAsUpIndicator(R.drawable.ic_qr_code_24)
+        }
+
+        setHasOptionsMenu(true)
 
         buttonNext.setSafetyOnclickListener {
             if (export) {
                 val dialog = ExportBottomSheetDialog(listener = object :
                     ExportBottomSheetDialog.OnItemSelectedListener {
                     override fun onCopy() {
-                        this@PsbtSignActivity.copyToClipboard(editText.text.toString())
+                        activity!!.copyToClipboard(editText.text.toString())
                         Toast.makeText(
-                            this@PsbtSignActivity,
+                            context!!,
                             getString(R.string.copied),
                             Toast.LENGTH_LONG
                         ).show()
@@ -84,14 +95,14 @@ class PsbtSignActivity : BaseAppCompatActivity() {
                     override fun onShowQR() {
                         val qrDialog =
                             QRCodeBottomSheetDialog(editText.text.toString(), animateEnabled = true)
-                        qrDialog.show(supportFragmentManager, QRCodeBottomSheetDialog.TAG)
+                        qrDialog.show(fragmentManager!!, QRCodeBottomSheetDialog.TAG)
                     }
 
                     override fun onSaveFile() {
                         savePsbtFileAndShare(editText.text.toString())
                     }
                 })
-                dialog.show(supportFragmentManager, ExportBottomSheetDialog.TAG)
+                dialog.show(fragmentManager!!, ExportBottomSheetDialog.TAG)
             } else {
                 signPsbt()
             }
@@ -102,19 +113,17 @@ class PsbtSignActivity : BaseAppCompatActivity() {
         val psbt = editText.text.toString()
         if (psbt.isBlank()) return
 
+        currentPsbt = psbt
+
         if (keyInfo != null) {
             currentKeyInfo = keyInfo
-            dialogController.confirm(
-                getString(R.string.confirm_to_sign_psbt),
-                getString(
-                    R.string.please_review_your_info_before_signing,
-                    keyInfo.fingerprint,
-                    keyInfo.alias
-                ),
-                positive = getString(R.string.sign),
-                positiveEvent = {
-                    viewModel.signPsbt(psbt, keyInfo, seed)
-                }
+            currentSeed = seed
+
+            val bundle = VerifyPsbtSignActivity.getBundle(keyInfo, participants)
+            navigator.anim(RIGHT_LEFT).startActivityForResult(
+                VerifyPsbtSignActivity::class.java,
+                REQUEST_CODE_SIGN_VERIFY,
+                bundle
             )
         } else {
             viewModel.getKeyToSign(psbt)
@@ -140,13 +149,13 @@ class PsbtSignActivity : BaseAppCompatActivity() {
 
                 res.isError() -> {
                     if (!KeyStoreHelper.handleKeyStoreError(
-                            applicationContext,
+                            context!!,
                             res.throwable()!!,
                             dialogController,
                             navigator,
                             authRequiredCallback = {
                                 KeyStoreHelper.biometricAuth(
-                                    this,
+                                    activity!!,
                                     R.string.auth_required,
                                     R.string.auth_for_signing,
                                     successCallback = {
@@ -215,6 +224,7 @@ class PsbtSignActivity : BaseAppCompatActivity() {
                 res.isSuccess() -> {
                     res.data()?.let { (joinedSigners, psbt) ->
                         if (psbt.signable) {
+                            participants = joinedSigners
                             dialogController.alert(
                                 getString(R.string.valid_psbt),
                                 getString(
@@ -252,9 +262,9 @@ class PsbtSignActivity : BaseAppCompatActivity() {
 
     }
 
-    override fun onCreateOptionsMenu(menu: Menu?): Boolean {
-        menuInflater.inflate(R.menu.common_menu, menu)
-        return super.onCreateOptionsMenu(menu)
+    override fun onCreateOptionsMenu(menu: Menu, inflater: MenuInflater) {
+        inflater.inflate(R.menu.common_menu, menu)
+        super.onCreateOptionsMenu(menu, inflater)
     }
 
     override fun onOptionsItemSelected(item: MenuItem): Boolean {
@@ -272,12 +282,9 @@ class PsbtSignActivity : BaseAppCompatActivity() {
                 navigator.browseDocument(requestCode = REQUEST_CODE_BROWSE)
             }
             R.id.action_paste -> {
-                this.pasteFromClipBoard()?.let {
+                activity?.pasteFromClipBoard()?.let {
                     checkPsbt(it)
                 } ?: dialogController.alert(R.string.error, R.string.clipboard_is_empty)
-            }
-            R.id.action_signer -> {
-                navigator.anim(RIGHT_LEFT).startActivity(AccountsActivity::class.java)
             }
         }
 
@@ -304,7 +311,7 @@ class PsbtSignActivity : BaseAppCompatActivity() {
                     data?.data?.let { uri ->
                         progressBar.visible()
                         Single.fromCallable {
-                            val bytes = contentResolver.openInputStream(uri)?.readBytes()
+                            val bytes = activity?.contentResolver?.openInputStream(uri)?.readBytes()
                             Base64.encodeToString(bytes, Base64.NO_WRAP)
                         }
                             .subscribeOn(Schedulers.io())
@@ -322,6 +329,9 @@ class PsbtSignActivity : BaseAppCompatActivity() {
                         val (keyInfo, seed) = AddAccountActivity.extractResultData(it)
                         signPsbt(keyInfo, seed)
                     }
+                }
+                REQUEST_CODE_SIGN_VERIFY -> {
+                    viewModel.signPsbt(currentPsbt, currentKeyInfo, currentSeed)
                 }
                 else -> {
                     error("unknown request code: $requestCode")
@@ -347,12 +357,12 @@ class PsbtSignActivity : BaseAppCompatActivity() {
         ).subscribe { permission ->
             when {
                 permission.granted -> {
-                    val dir = this.getExternalFilesDir(null)
+                    val dir = activity!!.getExternalFilesDir(null)
                     val psbtFile = File(dir, "GordianSigner.psbt")
                     psbtFile.writeBytes(Base64.decode(base64, Base64.NO_WRAP))
 
                     val psbtUri = FileProvider.getUriForFile(
-                        this,
+                        context!!,
                         getString(R.string.app_authority),
                         psbtFile
                     )
@@ -363,7 +373,7 @@ class PsbtSignActivity : BaseAppCompatActivity() {
                     // do nothing
                 }
                 else -> {
-                    navigator.openAppSetting(this)
+                    navigator.openAppSetting(activity!!)
                 }
             }
         }.let {
